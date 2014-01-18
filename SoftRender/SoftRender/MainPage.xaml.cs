@@ -1,5 +1,6 @@
 ﻿using SharpDX;
 using SoftRender.Engine;
+using System.Collections.Generic;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
@@ -10,38 +11,61 @@ namespace SoftRender
     public sealed partial class MainPage : Page
     {
         RenderDevice device;
-        Mesh mesh;
         Camera camera;
+        List<Mesh> meshes;
 
         private void PageLoaded(object sender, RoutedEventArgs e)
         {
             var bmp = new WriteableBitmap(640, 480);
             imageControl.Source = bmp;
 
-            device = new RenderDevice(bmp);
+            device = new RenderDevice(bmp)
+            {
+                Color = Color4.White,
+            };
             camera = new Camera
             {
                 Position = new Vector3(0, 0, 10.0f),
                 Target = Vector3.Zero
             };
-            mesh = new Mesh("Cube", new Vector3[]
-            {
-                new Vector3(-1, 1, 1),
-                new Vector3(1, 1, 1),
-                new Vector3(-1, -1, 1),
-                new Vector3(-1, -1, -1),
-                new Vector3(-1, 1, -1),
-                new Vector3(1, 1, -1),
-                new Vector3(1, -1, 1),
-                new Vector3(1, -1, -1),
-            });
+            meshes = new List<Mesh>();
+            meshes.Add(new Mesh("Cube",
+                new Vector3[]
+                {
+                    new Vector3(-1, 1, 1),
+                    new Vector3(1, 1, 1),
+                    new Vector3(-1, -1, 1),
+                    new Vector3(1, -1, 1),
+                    new Vector3(-1, 1, -1),
+                    new Vector3(1, 1, -1),
+                    new Vector3(1, -1, -1),
+                    new Vector3(-1, -1, -1),
+                },
+                new Face[]
+                {
+                    new Face(0, 1, 2),
+                    new Face(1, 2, 3),
+                    new Face(1, 3, 6),
+                    new Face(1, 5, 6),
+                    new Face(0, 1, 4),
+                    new Face(1, 4, 5),
+                    new Face(2, 3, 7),
+                    new Face(3, 6, 7),
+                    new Face(0, 2, 7),
+                    new Face(0, 4, 7),
+                    new Face(4, 5, 6),
+                    new Face(4, 6, 7),
+                }));
         }
 
         void Render(object sender, object e)
         {
             device.Clear(0, 0, 0, 255);
-            mesh.Rotation = new Vector3(mesh.Rotation.X + 0.01f, mesh.Rotation.Y + 0.01f, mesh.Rotation.Z);
-            device.Render(camera, mesh);
+            foreach (var mesh in meshes)
+            {
+                mesh.Rotation = new Vector3(mesh.Rotation.X + 0.01f, mesh.Rotation.Y + 0.01f, mesh.Rotation.Z);
+                device.Render(camera, mesh);
+            }
             device.Present();
         }
 

@@ -12,16 +12,20 @@ namespace SoftRender.Engine
 
         public Vector3[] Vertices { get; private set; }
 
-        public Mesh(string name, int vertexCount)
+        public Face[] Faces { get; private set; }
+
+        public Mesh(string name, int vertexCount, int faceCount)
         {
             Name = name;
             Vertices = new Vector3[vertexCount];
+            Faces = new Face[faceCount];
         }
 
-        public Mesh(string name, Vector3[] vertices)
-            :this(name, vertices.Length)
+        public Mesh(string name, Vector3[] vertices, Face[] faces)
+            :this(name, vertices.Length, faces.Length)
         {
             vertices.CopyTo(Vertices, 0);
+            faces.CopyTo(Faces, 0);
         }
     }
 }
