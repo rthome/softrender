@@ -1,5 +1,6 @@
 ﻿using SharpDX;
 using SoftRender.Engine;
+using System;
 using System.Collections.Generic;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -19,10 +20,7 @@ namespace SoftRender
             var bmp = new WriteableBitmap(640, 480);
             imageControl.Source = bmp;
 
-            device = new RenderDevice(bmp)
-            {
-                Color = Color4.White,
-            };
+            device = new RenderDevice(bmp);
             camera = new Camera
             {
                 Position = new Vector3(0, 0, 10.0f),
@@ -37,8 +35,8 @@ namespace SoftRender
                 meshes.Add(mesh);
             var cube0 = Mesh.Cube;
             var cube1 = Mesh.Cube;
-            cube0.Position = new Vector3(0, 2.25f, 0); 
-            cube1.Position = new Vector3(0, -2.25f, 0);
+            cube0.Position = new Vector3(0, 2.4f, 0); 
+            cube1.Position = new Vector3(0, -2.4f, 0);
             meshes.Add(cube0);
             meshes.Add(cube1);
         }

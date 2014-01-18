@@ -1,17 +1,45 @@
 ﻿using SharpDX;
-using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Threading;
+using System.Threading.Tasks;
 using Windows.UI.Xaml.Media.Imaging;
 
 namespace SoftRender.Engine
 {
     class RenderDevice
     {
-        private byte[] backBuffer;
-        private WriteableBitmap renderTarget;
+        private readonly byte[] backBuffer;
+        private readonly float[] depthBuffer;
+        private readonly object[] lockBuffer;
 
-        public Color4 Color { get; set; }
+        private readonly WriteableBitmap renderTarget;
+
+        private readonly int renderWidth, renderHeight;
+
+        void ProcessScanline(int y, Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, Color4 color)
+        {
+            // Thanks to current Y, we can compute the gradient to compute others values like
+            // the starting X (sx) and ending X (ex) to draw between
+            // if pa.Y == pb.Y or pc.Y == pd.Y, gradient is forced to 1
+            var gradient1 = p0.Y != p1.Y ? (y - p0.Y) / (p1.Y - p0.Y) : 1;
+            var gradient2 = p2.Y != p3.Y ? (y - p2.Y) / (p3.Y - p2.Y) : 1;
+
+            var sx = (int)p0.X.Interpolate(p1.X, gradient1);
+            var ex = (int)p2.X.Interpolate(p3.X, gradient2);
+
+            // starting Z & ending Z
+            var z1 = p0.Z.Interpolate(p1.Z, gradient1);
+            var z2 = p2.Z.Interpolate(p3.Z, gradient2);
+
+            // drawing a line from left (sx) to right (ex) 
+            for (var x = sx; x < ex; x++)
+            {
+                var gradient = (x - sx) / (float)(ex - sx);
+                var z = z1.Interpolate(z2, gradient);
+                DrawPoint(new Vector3(x, y, z), color);
+            }
+        }
 
         public void Clear(byte r, byte g, byte b, byte a)
         {
@@ -22,60 +50,130 @@ namespace SoftRender.Engine
                 backBuffer[i + 2] = r;
                 backBuffer[i + 3] = a;
             }
+            for (int i = 0; i < depthBuffer.Length; i++)
+                depthBuffer[i] = float.MaxValue;
         }
 
-        public void PutPixel(int x, int y)
+        public void PutPixel(int x, int y, float z, Color4 color)
         {
-            var index = (x + y * renderTarget.PixelWidth) * 4;
-            backBuffer[index] = (byte)(Color.Blue * 255);
-            backBuffer[index + 1] = (byte)(Color.Green * 255);
-            backBuffer[index + 2] = (byte)(Color.Red * 255);
-            backBuffer[index + 3] = (byte)(Color.Alpha * 255);
+
+            var index = (x + y * renderWidth);
+            var index4 = index * 4;
+
+            // Enter critical section
+            lock (lockBuffer[index])
+            {
+                if (depthBuffer[index] < z)
+                    return;
+
+                depthBuffer[index] = z;
+                backBuffer[index4] = (byte)(color.Blue * 255);
+                backBuffer[index4 + 1] = (byte)(color.Green * 255);
+                backBuffer[index4 + 2] = (byte)(color.Red * 255);
+                backBuffer[index4 + 3] = (byte)(color.Alpha * 255);
+            }
         }
 
-        public Vector2 Project(Vector3 position, Matrix matrix)
+        public Vector3 Project(Vector3 position, Matrix matrix)
         {
             var point = Vector3.TransformCoordinate(position, matrix);
-            var x = point.X * renderTarget.PixelWidth + renderTarget.PixelWidth / 2f;
-            var y = -point.Y * renderTarget.PixelHeight + renderTarget.PixelHeight / 2f;
-            return new Vector2(x, y);
+            var x = point.X * renderWidth + renderWidth / 2f;
+            var y = -point.Y * renderHeight + renderHeight / 2f;
+            return new Vector3(x, y, point.Z);
         }
 
-        public void DrawPoint(Vector2 point)
+        public void DrawPoint(Vector3 point, Color4 color)
         {
-            if (point.X >= 0 && point.Y >= 0 && point.X < renderTarget.PixelWidth && point.Y < renderTarget.PixelHeight)
-                PutPixel((int)point.X, (int)point.Y);
+            if (point.X >= 0 && point.Y >= 0 && point.X < renderWidth && point.Y < renderHeight)
+                PutPixel((int)point.X, (int)point.Y, point.Z, color);
         }
 
-        public void DrawLine(Vector2 p0, Vector2 p1)
+        public void DrawTriangle(Vector3 p1, Vector3 p2, Vector3 p3, Color4 color)
         {
-            int x0 = (int)p0.X;
-            int y0 = (int)p0.Y;
-            int x1 = (int)p1.X;
-            int y1 = (int)p1.Y;
-
-            var dx = Math.Abs(x1 - x0);
-            var dy = Math.Abs(y1 - y0);
-            var sx = (x0 < x1) ? 1 : -1;
-            var sy = (y0 < y1) ? 1 : -1;
-            var err = dx - dy;
-
-            while (true)
+            // Sorting the points in order to always have this order on screen p1, p2 & p3
+            // with p1 always up (thus having the Y the lowest possible to be near the top screen)
+            // then p2 between p1 & p3
+            if (p1.Y > p2.Y)
             {
-                DrawPoint(new Vector2(x0, y0));
+                var temp = p2;
+                p2 = p1;
+                p1 = temp;
+            }
 
-                if ((x0 == x1) && (y0 == y1))
-                    break;
-                var e2 = 2 * err;
-                if (e2 > -dy)
+            if (p2.Y > p3.Y)
+            {
+                var temp = p2;
+                p2 = p3;
+                p3 = temp;
+            }
+
+            if (p1.Y > p2.Y)
+            {
+                var temp = p2;
+                p2 = p1;
+                p1 = temp;
+            }
+
+            // inverse slopes
+            float dP1P2, dP1P3;
+            if (p2.Y - p1.Y > 0)
+                dP1P2 = (p2.X - p1.X) / (p2.Y - p1.Y);
+            else
+                dP1P2 = 0;
+
+            if (p3.Y - p1.Y > 0)
+                dP1P3 = (p3.X - p1.X) / (p3.Y - p1.Y);
+            else
+                dP1P3 = 0;
+
+            // First case where triangles are like that:
+            // P1
+            // -
+            // -- 
+            // - -
+            // -  -
+            // -   - P2
+            // -  -
+            // - -
+            // -
+            // P3
+            if (dP1P2 > dP1P3)
+            {
+                for (var y = (int)p1.Y; y <= (int)p3.Y; y++)
                 {
-                    err -= dy; 
-                    x0 += sx;
+                    if (y < p2.Y)
+                    {
+                        ProcessScanline(y, p1, p3, p1, p2, color);
+                    }
+                    else
+                    {
+                        ProcessScanline(y, p1, p3, p2, p3, color);
+                    }
                 }
-                if (e2 < dx)
+            }
+            // First case where triangles are like that:
+            //       P1
+            //        -
+            //       -- 
+            //      - -
+            //     -  -
+            // P2 -   - 
+            //     -  -
+            //      - -
+            //        -
+            //       P3
+            else
+            {
+                for (var y = (int)p1.Y; y <= (int)p3.Y; y++)
                 {
-                    err += dx; 
-                    y0 += sy;
+                    if (y < p2.Y)
+                    {
+                        ProcessScanline(y, p1, p2, p1, p3, color);
+                    }
+                    else
+                    {
+                        ProcessScanline(y, p2, p3, p1, p3, color);
+                    }
                 }
             }
         }
@@ -90,7 +188,7 @@ namespace SoftRender.Engine
         public void Render(Camera camera, List<Mesh> meshes)
         {
             var viewMatrix = Matrix.LookAtLH(camera.Position, camera.Target, Vector3.UnitY);
-            var projectionMatrix = Matrix.PerspectiveFovRH(0.78f, (float)renderTarget.PixelWidth / renderTarget.PixelHeight, 0.01f, 1.0f);
+            var projectionMatrix = Matrix.PerspectiveFovRH(0.78f, (float)renderWidth / renderHeight, 0.01f, 1.0f);
 
             foreach (Mesh mesh in meshes)
             {
@@ -98,8 +196,10 @@ namespace SoftRender.Engine
                                   Matrix.Translation(mesh.Position);
                 var transformMatrix = worldMatrix * viewMatrix * projectionMatrix;
 
-                foreach (var face in mesh.Faces)
+                Parallel.For(0, mesh.Faces.Length, i =>
                 {
+                    var face = mesh.Faces[i];
+
                     var vertexA = mesh.Vertices[face.V0];
                     var vertexB = mesh.Vertices[face.V1];
                     var vertexC = mesh.Vertices[face.V2];
@@ -108,17 +208,23 @@ namespace SoftRender.Engine
                     var pix1 = Project(vertexB, transformMatrix);
                     var pix2 = Project(vertexC, transformMatrix);
 
-                    DrawLine(pix0, pix1);
-                    DrawLine(pix1, pix2);
-                    DrawLine(pix2, pix0);
-                }
+                    var color = 0.25f + (i % mesh.Faces.Length) * 0.75f / mesh.Faces.Length;
+                    DrawTriangle(pix0, pix1, pix2, new Color4(color, color, color, 1));
+                });
             }
         }
 
         public RenderDevice(WriteableBitmap bmp)
         {
             renderTarget = bmp;
-            backBuffer = new byte[bmp.PixelWidth * bmp.PixelHeight * 4];
+            renderWidth = bmp.PixelWidth;
+            renderHeight = bmp.PixelHeight;
+
+            backBuffer = new byte[renderWidth * renderHeight * 4];
+            depthBuffer = new float[renderWidth * renderHeight];
+            lockBuffer = new object[renderWidth * renderHeight];
+            for (int i = 0; i < lockBuffer.Length; i++)
+                lockBuffer[i] = new object();
         }
     }
 }

@@ -107,6 +107,7 @@
     </Compile>
     <Compile Include="BabylonImporter.cs" />
     <Compile Include="Engine\Camera.cs" />
+    <Compile Include="Engine\MathExtensions.cs" />
     <Compile Include="Engine\Face.cs" />
     <Compile Include="Engine\Mesh.cs" />
     <Compile Include="Engine\RenderDevice.cs" />
