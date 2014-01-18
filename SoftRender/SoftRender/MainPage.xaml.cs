@@ -35,33 +35,12 @@ namespace SoftRender
             meshes = new List<Mesh>();
             foreach(var mesh in importedMeshes)
                 meshes.Add(mesh);
-            meshes.Add(new Mesh("Cube",
-                new Vector3[]
-                {
-                    new Vector3(-1, 1, 1),
-                    new Vector3(1, 1, 1),
-                    new Vector3(-1, -1, 1),
-                    new Vector3(1, -1, 1),
-                    new Vector3(-1, 1, -1),
-                    new Vector3(1, 1, -1),
-                    new Vector3(1, -1, -1),
-                    new Vector3(-1, -1, -1),
-                },
-                new Face[]
-                {
-                    new Face(0, 1, 2),
-                    new Face(1, 2, 3),
-                    new Face(1, 3, 6),
-                    new Face(1, 5, 6),
-                    new Face(0, 1, 4),
-                    new Face(1, 4, 5),
-                    new Face(2, 3, 7),
-                    new Face(3, 6, 7),
-                    new Face(0, 2, 7),
-                    new Face(0, 4, 7),
-                    new Face(4, 5, 6),
-                    new Face(4, 6, 7),
-                }));
+            var cube0 = Mesh.Cube;
+            var cube1 = Mesh.Cube;
+            cube0.Position = new Vector3(0, 2.25f, 0); 
+            cube1.Position = new Vector3(0, -2.25f, 0);
+            meshes.Add(cube0);
+            meshes.Add(cube1);
         }
 
         void Render(object sender, object e)
