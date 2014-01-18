@@ -14,7 +14,7 @@ namespace SoftRender
         Camera camera;
         List<Mesh> meshes;
 
-        private void PageLoaded(object sender, RoutedEventArgs e)
+        private async void PageLoaded(object sender, RoutedEventArgs e)
         {
             var bmp = new WriteableBitmap(640, 480);
             imageControl.Source = bmp;
@@ -28,7 +28,13 @@ namespace SoftRender
                 Position = new Vector3(0, 0, 10.0f),
                 Target = Vector3.Zero
             };
+
+            var importer = new BabylonImporter();
+            var importedMeshes = await importer.LoadFileAsync("icosphere.babylon");
+
             meshes = new List<Mesh>();
+            foreach(var mesh in importedMeshes)
+                meshes.Add(mesh);
             meshes.Add(new Mesh("Cube",
                 new Vector3[]
                 {
@@ -62,10 +68,8 @@ namespace SoftRender
         {
             device.Clear(0, 0, 0, 255);
             foreach (var mesh in meshes)
-            {
                 mesh.Rotation = new Vector3(mesh.Rotation.X + 0.01f, mesh.Rotation.Y + 0.01f, mesh.Rotation.Z);
-                device.Render(camera, mesh);
-            }
+            device.Render(camera, meshes);
             device.Present();
         }
 

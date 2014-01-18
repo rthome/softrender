@@ -1,5 +1,6 @@
 ﻿using SharpDX;
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.UI.Xaml.Media.Imaging;
 
@@ -86,7 +87,7 @@ namespace SoftRender.Engine
             renderTarget.Invalidate();
         }
 
-        public void Render(Camera camera, params Mesh[] meshes)
+        public void Render(Camera camera, List<Mesh> meshes)
         {
             var viewMatrix = Matrix.LookAtLH(camera.Position, camera.Target, Vector3.UnitY);
             var projectionMatrix = Matrix.PerspectiveFovRH(0.78f, (float)renderTarget.PixelWidth / renderTarget.PixelHeight, 0.01f, 1.0f);
