@@ -25,33 +25,33 @@ namespace SoftRender.Engine
             var gradient1 = p0.Y != p1.Y ? (y - p0.Y) / (p1.Y - p0.Y) : 1;
             var gradient2 = p2.Y != p3.Y ? (y - p2.Y) / (p3.Y - p2.Y) : 1;
 
-            var sx = (int)p0.X.Interpolate(p1.X, gradient1);
-            var ex = (int)p2.X.Interpolate(p3.X, gradient2);
+            var sx = (int)MathExtensions.Interpolate(p0.X, p1.X, gradient1);
+            var ex = (int)MathExtensions.Interpolate(p2.X, p3.X, gradient2);
 
             // starting Z & ending Z
-            var z1 = p0.Z.Interpolate(p1.Z, gradient1);
-            var z2 = p2.Z.Interpolate(p3.Z, gradient2);
+            var z1 = MathExtensions.Interpolate(p0.Z, p1.Z, gradient1);
+            var z2 = MathExtensions.Interpolate(p2.Z, p3.Z, gradient2);
 
             // drawing a line from left (sx) to right (ex) 
             for (var x = sx; x < ex; x++)
             {
                 var gradient = (x - sx) / (float)(ex - sx);
-                var z = z1.Interpolate(z2, gradient);
+                var z = MathExtensions.Interpolate(z1, z2, gradient);
                 DrawPoint(new Vector3(x, y, z), color);
             }
         }
 
         public void Clear(byte r, byte g, byte b, byte a)
         {
-            for (int i = 0; i < backBuffer.Length; i += 4)
+            Parallel.For(0, backBuffer.Length / 4, i =>
             {
-                backBuffer[i] = b;
-                backBuffer[i + 1] = g;
-                backBuffer[i + 2] = r;
-                backBuffer[i + 3] = a;
-            }
-            for (int i = 0; i < depthBuffer.Length; i++)
+                var index = i * 4;
                 depthBuffer[i] = float.MaxValue;
+                backBuffer[index] = b;
+                backBuffer[index + 1] = g;
+                backBuffer[index + 2] = r;
+                backBuffer[index + 3] = a;
+            });
         }
 
         public void PutPixel(int x, int y, float z, Color4 color)

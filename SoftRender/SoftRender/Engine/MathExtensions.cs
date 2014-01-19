@@ -9,7 +9,7 @@ namespace SoftRender.Engine
             return Math.Max(min, Math.Min(value, max));
         }
 
-        public static float Interpolate(this float min, float max, float gradient)
+        public static float Interpolate(float min, float max, float gradient)
         {
             return min + (max - min) * Clamp(gradient);
         }
