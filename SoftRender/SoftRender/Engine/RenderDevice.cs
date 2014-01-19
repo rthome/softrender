@@ -52,15 +52,15 @@ namespace SoftRender.Engine
 
         public void Clear(byte r, byte g, byte b, byte a)
         {
-            Parallel.For(0, backBuffer.Length / 4, i =>
+            for (int i = 0; i < backBuffer.Length; i += 4)
             {
-                var index = i * 4;
+                backBuffer[i] = b;
+                backBuffer[i + 1] = g;
+                backBuffer[i + 2] = r;
+                backBuffer[i + 3] = a;
+            }
+            for (int i = 0; i < depthBuffer.Length; i++)
                 depthBuffer[i] = float.MaxValue;
-                backBuffer[index] = b;
-                backBuffer[index + 1] = g;
-                backBuffer[index + 2] = r;
-                backBuffer[index + 3] = a;
-            });
         }
 
         public void PutPixel(int x, int y, float z, Color4 color)
