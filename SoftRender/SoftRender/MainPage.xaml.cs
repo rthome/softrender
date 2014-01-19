@@ -28,24 +28,20 @@ namespace SoftRender
             };
 
             var importer = new BabylonImporter();
-            var importedMeshes = await importer.LoadFileAsync("icosphere.babylon");
+            var importedMeshes = await importer.LoadFileAsync("model.babylon");
 
             meshes = new List<Mesh>();
             foreach(var mesh in importedMeshes)
                 meshes.Add(mesh);
-            var cube0 = Mesh.Cube;
-            var cube1 = Mesh.Cube;
-            cube0.Position = new Vector3(0, 2.4f, 0); 
-            cube1.Position = new Vector3(0, -2.4f, 0);
-            meshes.Add(cube0);
-            meshes.Add(cube1);
+
+            CompositionTarget.Rendering += Render;
         }
 
         void Render(object sender, object e)
         {
             device.Clear(0, 0, 0, 255);
             foreach (var mesh in meshes)
-                mesh.Rotation = new Vector3(mesh.Rotation.X + 0.01f, mesh.Rotation.Y + 0.01f, mesh.Rotation.Z);
+                mesh.Rotation = new Vector3(mesh.Rotation.X, mesh.Rotation.Y + 0.01f, mesh.Rotation.Z);
             device.Render(camera, meshes);
             device.Present();
         }
@@ -55,7 +51,6 @@ namespace SoftRender
             InitializeComponent();
 
             Loaded += PageLoaded;
-            CompositionTarget.Rendering += Render;
         }
     }
 }

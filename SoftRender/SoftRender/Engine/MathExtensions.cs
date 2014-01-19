@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SharpDX;
+using System;
 
 namespace SoftRender.Engine
 {
@@ -7,6 +8,18 @@ namespace SoftRender.Engine
         public static float Clamp(this float value, float min = 0, float max = 1)
         {
             return Math.Max(min, Math.Min(value, max));
+        }
+
+        // Compute the cosine of the angle between the light vector and the normal vector
+        // Returns a value between 0 and 1
+        public static float ComputeNDotL(Vector3 vertex, Vector3 normal, Vector3 lightPosition)
+        {
+            var lightDirection = lightPosition - vertex;
+
+            normal.Normalize();
+            lightDirection.Normalize();
+
+            return Math.Max(0, Vector3.Dot(normal, lightDirection));
         }
 
         public static float Interpolate(float min, float max, float gradient)

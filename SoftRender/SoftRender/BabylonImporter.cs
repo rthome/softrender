@@ -46,7 +46,14 @@ namespace SoftRender
                     var x = (float)vertices[index * vertexStep].Value;
                     var y = (float)vertices[index * vertexStep + 1].Value;
                     var z = (float)vertices[index * vertexStep + 2].Value;
-                    mesh.Vertices[index] = new Vector3(x, y, z);
+                    var nx = (float)vertices[index * vertexStep + 3].Value;
+                    var ny = (float)vertices[index * vertexStep + 4].Value;
+                    var nz = (float)vertices[index * vertexStep + 5].Value;
+                    mesh.Vertices[index] = new Vertex
+                    {
+                        Coordinates = new Vector3(x, y, z),
+                        Normal = new Vector3(nx, ny, nz),
+                    };
                 }
                 for (var index = 0; index < faceCount; index++)
                 {
