@@ -52,7 +52,7 @@ namespace SoftRender
                     mesh.Vertices[index] = new Vertex
                     {
                         Coordinates = new Vector3(x, y, z),
-                        Normal = new Vector3(nx, ny, nz),
+                        Normal = Vector3.Normalize(new Vector3(nx, ny, nz)),
                     };
                 }
                 for (var index = 0; index < faceCount; index++)

@@ -67,7 +67,6 @@ namespace SoftRender.Engine
 
         public void PutPixel(int x, int y, float z, Color4 color)
         {
-
             var index = (x + y * renderWidth);
             var index4 = index * 4;
 
@@ -109,7 +108,8 @@ namespace SoftRender.Engine
 
         public void DrawPoint(Vector3 point, Color4 color)
         {
-            PutPixel((int)point.X, (int)point.Y, point.Z, color);
+            if (point.X >= 0 && point.X < renderWidth && point.Y >= 0 && point.Y < renderHeight)
+                PutPixel((int)point.X, (int)point.Y, point.Z, color);
         }
 
         public void DrawTriangle(Vertex v0, Vertex v1, Vertex v2, Color4 color)
@@ -124,21 +124,21 @@ namespace SoftRender.Engine
             if (v0.Coordinates.Y > v1.Coordinates.Y)
                 MathExtensions.Swap(ref v0, ref v1);
 
-            Vector3 p1 = v0.Coordinates;
-            Vector3 p2 = v1.Coordinates;
-            Vector3 p3 = v2.Coordinates;
+            Vector3 p0 = v0.Coordinates;
+            Vector3 p1 = v1.Coordinates;
+            Vector3 p2 = v2.Coordinates;
 
             // computing the cos of the angle between the light vector and the normal vector
             // it will return a value between 0 and 1 that will be used as the intensity of the color
-            var nl0 = MathExtensions.ComputeNDotL(v0.WorldCoordinates, v0.Normal, LightPosition);
-            var nl1 = MathExtensions.ComputeNDotL(v1.WorldCoordinates, v1.Normal, LightPosition);
-            var nl2 = MathExtensions.ComputeNDotL(v2.WorldCoordinates, v2.Normal, LightPosition);
+            var nl0 = MathExtensions.ComputeNDotL(ref v0.WorldCoordinates, ref v0.Normal, ref LightPosition);
+            var nl1 = MathExtensions.ComputeNDotL(ref v1.WorldCoordinates, ref v1.Normal, ref LightPosition);
+            var nl2 = MathExtensions.ComputeNDotL(ref v2.WorldCoordinates, ref v2.Normal, ref LightPosition);
 
             // computing lines' directions
             // http://en.wikipedia.org/wiki/Slope
             // Computing slopes
-            var d1 = (p2.Y - p1.Y > 0) ? (p2.X - p1.X) / (p2.Y - p1.Y) : 0;
-            var d2 = (p3.Y - p1.Y > 0) ? (p3.X - p1.X) / (p3.Y - p1.Y) : 0;
+            var d1 = (p1.Y - p0.Y > 0) ? (p1.X - p0.X) / (p1.Y - p0.Y) : 0;
+            var d2 = (p2.Y - p0.Y > 0) ? (p2.X - p0.X) / (p2.Y - p0.Y) : 0;
 
             var data = new ScanlineData();
             // First case where triangles are like that:
@@ -154,11 +154,11 @@ namespace SoftRender.Engine
             // P3
             if (d1 > d2)
             {
-                for (var y = (int)p1.Y; y <= (int)p3.Y; y++)
+                for (var y = (int)p0.Y; y <= (int)p2.Y; y++)
                 {
                     data.Y = y;
 
-                    if (y < p2.Y)
+                    if (y < p1.Y)
                     {
                         data.NDotL0 = nl0;
                         data.NDotL1 = nl2;
@@ -189,11 +189,11 @@ namespace SoftRender.Engine
             //       P3
             else
             {
-                for (var y = (int)p1.Y; y <= (int)p3.Y; y++)
+                for (var y = (int)p0.Y; y <= (int)p2.Y; y++)
                 {
                     data.Y = y;
 
-                    if (y < p2.Y)
+                    if (y < p1.Y)
                     {
                         data.NDotL0 = nl0;
                         data.NDotL1 = nl1;

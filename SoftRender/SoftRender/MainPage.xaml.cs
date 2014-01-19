@@ -33,6 +33,12 @@ namespace SoftRender
             meshes = new List<Mesh>();
             foreach(var mesh in importedMeshes)
                 meshes.Add(mesh);
+            foreach(var mesh in importedMeshes)
+            {
+                var newMesh = new Mesh("MonkeyClone", mesh.Vertices, mesh.Faces);
+                newMesh.Position = new Vector3(2.65f, 0, 0);
+                meshes.Add(newMesh);
+            }
 
             CompositionTarget.Rendering += Render;
         }
