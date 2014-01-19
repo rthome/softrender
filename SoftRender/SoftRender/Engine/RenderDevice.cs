@@ -17,6 +17,8 @@ namespace SoftRender.Engine
 
         private readonly int renderWidth, renderHeight;
 
+        public Vector3 LightPosition;
+
         void ProcessScanline(ScanlineData d, Vertex v0, Vertex v1, Vertex v2, Vertex v3, Color4 color)
         {
             var p0 = v0.Coordinates;
@@ -30,22 +32,22 @@ namespace SoftRender.Engine
             var gradient1 = p0.Y != p1.Y ? (d.Y - p0.Y) / (p1.Y - p0.Y) : 1;
             var gradient2 = p2.Y != p3.Y ? (d.Y - p2.Y) / (p3.Y - p2.Y) : 1;
 
-            var sx = (int)MathExtensions.Interpolate(p0.X, p1.X, gradient1);
-            var ex = (int)MathExtensions.Interpolate(p2.X, p3.X, gradient2);
+            var sx = (int)gradient1.Interpolate(p0.X, p1.X);
+            var ex = (int)gradient2.Interpolate(p2.X, p3.X);
 
             // starting Z & ending Z
-            var z1 = MathExtensions.Interpolate(p0.Z, p1.Z, gradient1);
-            var z2 = MathExtensions.Interpolate(p2.Z, p3.Z, gradient2);
+            var z1 = gradient1.Interpolate(p0.Z, p1.Z);
+            var z2 = gradient2.Interpolate(p2.Z, p3.Z);
 
-            var snl = MathExtensions.Interpolate(d.NDotL0, d.NDotL1, gradient1);
-            var enl = MathExtensions.Interpolate(d.NDotL2, d.NDotL3, gradient2);
+            var snl = gradient1.Interpolate(d.NDotL0, d.NDotL1);
+            var enl = gradient2.Interpolate(d.NDotL2, d.NDotL3);
 
             // drawing a line from left (sx) to right (ex) 
             for (var x = sx; x < ex; x++)
             {
                 var gradient = (x - sx) / (float)(ex - sx);
-                var z = MathExtensions.Interpolate(z1, z2, gradient);
-                var ndotl = MathExtensions.Interpolate(snl, enl, gradient);
+                var z = gradient.Interpolate(z1, z2);
+                var ndotl = gradient.Interpolate(snl, enl);
                 DrawPoint(new Vector3(x, d.Y, z), color * ndotl);
             }
         }
@@ -107,8 +109,7 @@ namespace SoftRender.Engine
 
         public void DrawPoint(Vector3 point, Color4 color)
         {
-            if (point.X >= 0 && point.Y >= 0 && point.X < renderWidth && point.Y < renderHeight)
-                PutPixel((int)point.X, (int)point.Y, point.Z, color);
+            PutPixel((int)point.X, (int)point.Y, point.Z, color);
         }
 
         public void DrawTriangle(Vertex v0, Vertex v1, Vertex v2, Color4 color)
@@ -117,55 +118,29 @@ namespace SoftRender.Engine
             // with p1 always up (thus having the Y the lowest possible to be near the top screen)
             // then p2 between p1 & p3
             if (v0.Coordinates.Y > v1.Coordinates.Y)
-            {
-                var temp = v1;
-                v1 = v0;
-                v0 = temp;
-            }
-
+                MathExtensions.Swap(ref v0, ref v1);
             if (v1.Coordinates.Y > v2.Coordinates.Y)
-            {
-                var temp = v1;
-                v1 = v2;
-                v2 = temp;
-            }
-
+                MathExtensions.Swap(ref v1, ref v2);
             if (v0.Coordinates.Y > v1.Coordinates.Y)
-            {
-                var temp = v1;
-                v1 = v0;
-                v0 = temp;
-            }
+                MathExtensions.Swap(ref v0, ref v1);
 
             Vector3 p1 = v0.Coordinates;
             Vector3 p2 = v1.Coordinates;
             Vector3 p3 = v2.Coordinates;
 
-            // Light position 
-            Vector3 lightPos = new Vector3(0, 10, 10);
             // computing the cos of the angle between the light vector and the normal vector
             // it will return a value between 0 and 1 that will be used as the intensity of the color
-            float nl0 = MathExtensions.ComputeNDotL(v0.WorldCoordinates, v0.Normal, lightPos);
-            float nl1 = MathExtensions.ComputeNDotL(v1.WorldCoordinates, v1.Normal, lightPos);
-            float nl2 = MathExtensions.ComputeNDotL(v2.WorldCoordinates, v2.Normal, lightPos);
-
-            var data = new ScanlineData();
+            var nl0 = MathExtensions.ComputeNDotL(v0.WorldCoordinates, v0.Normal, LightPosition);
+            var nl1 = MathExtensions.ComputeNDotL(v1.WorldCoordinates, v1.Normal, LightPosition);
+            var nl2 = MathExtensions.ComputeNDotL(v2.WorldCoordinates, v2.Normal, LightPosition);
 
             // computing lines' directions
-            float dP1P2, dP1P3;
-
             // http://en.wikipedia.org/wiki/Slope
             // Computing slopes
-            if (p2.Y - p1.Y > 0)
-                dP1P2 = (p2.X - p1.X) / (p2.Y - p1.Y);
-            else
-                dP1P2 = 0;
+            var d1 = (p2.Y - p1.Y > 0) ? (p2.X - p1.X) / (p2.Y - p1.Y) : 0;
+            var d2 = (p3.Y - p1.Y > 0) ? (p3.X - p1.X) / (p3.Y - p1.Y) : 0;
 
-            if (p3.Y - p1.Y > 0)
-                dP1P3 = (p3.X - p1.X) / (p3.Y - p1.Y);
-            else
-                dP1P3 = 0;
-
+            var data = new ScanlineData();
             // First case where triangles are like that:
             // P1
             // -
@@ -177,7 +152,7 @@ namespace SoftRender.Engine
             // - -
             // -
             // P3
-            if (dP1P2 > dP1P3)
+            if (d1 > d2)
             {
                 for (var y = (int)p1.Y; y <= (int)p3.Y; y++)
                 {
@@ -275,6 +250,8 @@ namespace SoftRender.Engine
 
         public RenderDevice(WriteableBitmap bmp)
         {
+            LightPosition = new Vector3(0, 10, 10);
+
             renderTarget = bmp;
             renderWidth = bmp.PixelWidth;
             renderHeight = bmp.PixelHeight;

@@ -22,9 +22,9 @@ namespace SoftRender.Engine
             return Math.Max(0, Vector3.Dot(normal, lightDirection));
         }
 
-        public static float Interpolate(float min, float max, float gradient)
+        public static float Interpolate(this float t, float a, float b)
         {
-            return min + (max - min) * Clamp(gradient);
+            return (1 - t) * a + b * t;
         }
 
         public static void Swap<T>(ref T a, ref T b)
