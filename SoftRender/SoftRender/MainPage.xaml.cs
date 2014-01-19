@@ -17,7 +17,7 @@ namespace SoftRender
 
         private async void PageLoaded(object sender, RoutedEventArgs e)
         {
-            var bmp = new WriteableBitmap(640, 480);
+            var bmp = new WriteableBitmap(1024, 768);
             imageControl.Source = bmp;
 
             device = new RenderDevice(bmp);

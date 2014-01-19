@@ -1,7 +1,6 @@
 ﻿using SharpDX;
 using System.Collections.Generic;
 using System.Runtime.InteropServices.WindowsRuntime;
-using System.Threading;
 using System.Threading.Tasks;
 using Windows.UI.Xaml.Media.Imaging;
 
@@ -19,7 +18,7 @@ namespace SoftRender.Engine
 
         public Vector3 LightPosition;
 
-        void ProcessScanline(ScanlineData d, Vertex v0, Vertex v1, Vertex v2, Vertex v3, Color4 color)
+        void ProcessScanline(ref ScanlineData d, ref Vertex v0, ref Vertex v1, ref Vertex v2, ref Vertex v3, ref Color4 color)
         {
             var p0 = v0.Coordinates;
             var p1 = v1.Coordinates;
@@ -42,13 +41,21 @@ namespace SoftRender.Engine
             var snl = gradient1.Interpolate(d.NDotL0, d.NDotL1);
             var enl = gradient2.Interpolate(d.NDotL2, d.NDotL3);
 
+            Color c = new Color();
+            Color4 c4;
+            Vector3 pt;
             // drawing a line from left (sx) to right (ex) 
             for (var x = sx; x < ex; x++)
             {
                 var gradient = (x - sx) / (float)(ex - sx);
                 var z = gradient.Interpolate(z1, z2);
                 var ndotl = gradient.Interpolate(snl, enl);
-                DrawPoint(new Vector3(x, d.Y, z), color * ndotl);
+                Color4.Scale(ref color, ndotl, out c4);
+                c.FromColor4(ref c4);
+                pt.X = x;
+                pt.Y = d.Y;
+                pt.Z = z;
+                DrawPoint(ref pt, ref c);
             }
         }
 
@@ -65,32 +72,15 @@ namespace SoftRender.Engine
                 depthBuffer[i] = float.MaxValue;
         }
 
-        public void PutPixel(int x, int y, float z, Color4 color)
+        public Vertex Project(ref Vertex vertex, ref Matrix transformation, ref Matrix world)
         {
-            var index = (x + y * renderWidth);
-            var index4 = index * 4;
+            Vector3 point2d, point3dWorld, normal3dWorld;
 
-            // Enter critical section
-            lock (lockBuffer[index])
-            {
-                if (depthBuffer[index] < z)
-                    return;
-
-                depthBuffer[index] = z;
-                backBuffer[index4] = (byte)(color.Blue * 255);
-                backBuffer[index4 + 1] = (byte)(color.Green * 255);
-                backBuffer[index4 + 2] = (byte)(color.Red * 255);
-                backBuffer[index4 + 3] = (byte)(color.Alpha * 255);
-            }
-        }
-
-        public Vertex Project(Vertex vertex, Matrix transformation, Matrix world)
-        {
             // transforming the coordinates into 2D space
-            var point2d = Vector3.TransformCoordinate(vertex.Coordinates, transformation);
+            Vector3.TransformCoordinate(ref vertex.Coordinates, ref transformation, out point2d);
             // transforming the coordinates & the normal to the vertex in the 3D world
-            var point3dWorld = Vector3.TransformCoordinate(vertex.Coordinates, world);
-            var normal3dWorld = Vector3.TransformCoordinate(vertex.Normal, world);
+            Vector3.TransformCoordinate(ref vertex.Coordinates, ref world, out point3dWorld);
+            Vector3.TransformCoordinate(ref vertex.Normal, ref world, out normal3dWorld);
 
             // The transformed coordinates will be based on coordinate system
             // starting on the center of the screen. But drawing on screen normally starts
@@ -106,13 +96,30 @@ namespace SoftRender.Engine
             };
         }
 
-        public void DrawPoint(Vector3 point, Color4 color)
+        public void DrawPoint(ref Vector3 point, ref Color color)
         {
             if (point.X >= 0 && point.X < renderWidth && point.Y >= 0 && point.Y < renderHeight)
-                PutPixel((int)point.X, (int)point.Y, point.Z, color);
+            {
+                var index = ((int)point.X + (int)point.Y * renderWidth);
+                var index4 = index * 4;
+
+                // Enter critical section
+                lock (lockBuffer[index])
+                {
+                    if (depthBuffer[index] < point.Z)
+                        return;
+                    else
+                        depthBuffer[index] = point.Z;
+
+                    backBuffer[index4] = color.B;
+                    backBuffer[index4 + 1] = color.G;
+                    backBuffer[index4 + 2] = color.R;
+                    backBuffer[index4 + 3] = color.A;
+                }
+            }
         }
 
-        public void DrawTriangle(Vertex v0, Vertex v1, Vertex v2, Color4 color)
+        public void DrawTriangle(ref Vertex v0, ref Vertex v1, ref Vertex v2, Color4 color)
         {
             // Sorting the points in order to always have this order on screen p1, p2 & p3
             // with p1 always up (thus having the Y the lowest possible to be near the top screen)
@@ -164,7 +171,7 @@ namespace SoftRender.Engine
                         data.NDotL1 = nl2;
                         data.NDotL2 = nl0;
                         data.NDotL3 = nl1;
-                        ProcessScanline(data, v0, v2, v0, v1, color);
+                        ProcessScanline(ref data, ref v0, ref v2, ref v0, ref v1, ref color);
                     }
                     else
                     {
@@ -172,7 +179,7 @@ namespace SoftRender.Engine
                         data.NDotL1 = nl2;
                         data.NDotL2 = nl1;
                         data.NDotL3 = nl2;
-                        ProcessScanline(data, v0, v2, v1, v2, color);
+                        ProcessScanline(ref data, ref v0, ref v2, ref v1, ref v2, ref color);
                     }
                 }
             }
@@ -199,7 +206,7 @@ namespace SoftRender.Engine
                         data.NDotL1 = nl1;
                         data.NDotL2 = nl0;
                         data.NDotL3 = nl2;
-                        ProcessScanline(data, v0, v1, v0, v2, color);
+                        ProcessScanline(ref data, ref v0, ref v1, ref v0, ref v2, ref color);
                     }
                     else
                     {
@@ -207,7 +214,7 @@ namespace SoftRender.Engine
                         data.NDotL1 = nl2;
                         data.NDotL2 = nl0;
                         data.NDotL3 = nl2;
-                        ProcessScanline(data, v1, v2, v0, v2, color);
+                        ProcessScanline(ref data, ref v1, ref v2, ref v0, ref v2, ref color);
                     }
                 }
             }
@@ -239,11 +246,11 @@ namespace SoftRender.Engine
                     var vertexB = mesh.Vertices[face.V1];
                     var vertexC = mesh.Vertices[face.V2];
 
-                    var pix0 = Project(vertexA, transformMatrix, worldMatrix);
-                    var pix1 = Project(vertexB, transformMatrix, worldMatrix);
-                    var pix2 = Project(vertexC, transformMatrix, worldMatrix);
+                    var pix0 = Project(ref vertexA, ref transformMatrix, ref worldMatrix);
+                    var pix1 = Project(ref vertexB, ref transformMatrix, ref worldMatrix);
+                    var pix2 = Project(ref vertexC, ref transformMatrix, ref worldMatrix);
 
-                    DrawTriangle(pix0, pix1, pix2, new Color4(1.0f));
+                    DrawTriangle(ref pix0, ref pix1, ref pix2, new Color4(1.0f));
                 });
             }
         }
